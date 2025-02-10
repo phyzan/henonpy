@@ -22,13 +22,13 @@ class CustomInstall(install):
 
         package_dir = self.build_lib
         target_dir = os.path.join(package_dir, "henonpy")
-        cpp_path = os.path.join(package_dir, "henoncpp", "henon.cpp")
+        cwd = os.path.dirname(os.path.realpath(__file__))
+        cpp_path = os.path.join(cwd, "henon.cpp")
         with open(cpp_path, 'r') as f:
             code = f.read()
         
         src = os.path.join(os.path.dirname(ods.__file__), 'odepack', 'pyode.hpp')
         code = code.replace("pyode.hpp", src)
-
         with tempfile.TemporaryDirectory() as temp_dir:
             cpp_path = os.path.join(temp_dir, "henon.cpp")
             with open(cpp_path, "w") as f:
