@@ -17,17 +17,23 @@ class CustomInstall(install):
                 "git+https://github.com/phyzan/numiphy.git"
             ])
         
-        import numiphy.symlib.expressions as sym
         import numiphy.odesolvers as ods
-        
-        x, y, eps, alpha, beta, gamma, omega_x, omega_y = sym.variables('x, y, eps, alpha, beta, gamma, omega_x, omega_y')
-        V = (omega_x**2*x**2 + omega_y**2*y**2)/2 + eps*(x*y**2 + alpha*x**3 + beta*x**2*y + gamma*y**3)
-        dyn = ods.HamiltonianSystem(V, x, y, args=(eps, alpha, beta, gamma, omega_x, omega_y))
+        import tempfile
 
         package_dir = self.build_lib
         target_dir = os.path.join(package_dir, "henonpy")
-        dyn.ode.compile(target_dir, "henon", stack=True)
+        cpp_path = os.path.join(package_dir, "henoncpp", "henon.cpp")
+        with open(cpp_path, 'r') as f:
+            code = f.read()
+        
+        src = os.path.join(os.path.dirname(ods.__file__), 'odepack', 'pyode.hpp')
+        code = code.replace("pyode.hpp", src)
 
+        with tempfile.TemporaryDirectory() as temp_dir:
+            cpp_path = os.path.join(temp_dir, "henon.cpp")
+            with open(cpp_path, "w") as f:
+                f.write(code)
+            ods.compile(cpp_path, target_dir, "henon")
         super().run()
 
 

@@ -13,7 +13,7 @@ from typing import Dict, Any, Type, Literal, Callable
 from matplotlib.backend_bases import MouseEvent
 from matplotlib.figure import Figure as Fig
 import shutil
-from .HenonHeilsModule import ode
+from .henon import ode
 
 _hhode = ode()
 
