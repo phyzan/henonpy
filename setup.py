@@ -1,24 +1,13 @@
+# --- Now proceed with the rest of setup.py ---
 from setuptools import setup, find_packages
 from setuptools.command.install import install
 import os
-import subprocess
-import sys
-
+import tempfile
 
 class CustomInstall(install):
-
     def run(self):
-        try:
-            import numiphy
-        except ImportError:
-            print("numiphy not found. Installing from GitHub...")
-            subprocess.check_call([
-                sys.executable, "-m", "pip", "install", 
-                "git+https://github.com/phyzan/numiphy.git"
-            ])
-        
+        # At this point, numiphy should already be importable.
         import numiphy.odesolvers as ods
-        import tempfile
 
         package_dir = self.build_lib
         target_dir = os.path.join(package_dir, "henonpy")
@@ -30,12 +19,11 @@ class CustomInstall(install):
         src = os.path.join(os.path.dirname(ods.__file__), 'odepack', 'pyode.hpp')
         code = code.replace("pyode.hpp", src)
         with tempfile.TemporaryDirectory() as temp_dir:
-            cpp_path = os.path.join(temp_dir, "henon.cpp")
-            with open(cpp_path, "w") as f:
+            cpp_temp_path = os.path.join(temp_dir, "henon.cpp")
+            with open(cpp_temp_path, "w") as f:
                 f.write(code)
-            ods.compile(cpp_path, target_dir, "henon")
+            ods.compile(cpp_temp_path, target_dir, "henon")
         super().run()
-
 
 setup(
     name="henonpy",
@@ -49,7 +37,7 @@ setup(
         "matplotlib==3.9.2",
         "pybind11==2.13.6",
         "joblib==1.4.2",
-        "numiphy"
+        "numiphy@git+https://github.com/phyzan/numiphy.git",
     ],
     cmdclass={"install": CustomInstall},
     zip_safe=False
