@@ -1,4 +1,4 @@
-#include "/home/senpy/Documents/numiphy/numiphy/odesolvers/odepack/pyode.hpp"
+#include "pyode.hpp"
 
 
 using Tx = double;
