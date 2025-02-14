@@ -17,9 +17,29 @@ from .henon import ode
 
 _hhode = ode()
 
-class DynamicOrbit(ods.HamiltonianOrbit):
 
-    def V(self, x, y)->float:...
+class HenonHeilesOrbit(ods.HamiltonianOrbit):
+
+    E = 1
+
+    eps: float
+    alpha: float
+    beta: float
+    gamma: float
+    omega_x: float
+    omega_y: float
+    is_flagged: bool
+    is_active: bool
+
+    def __init__(self, eps, alpha, beta, gamma, omega_x, omega_y, x0, px0):
+        data = np.empty((0, 5), dtype=np.float64)
+        ods.Base.__init__(self, symbolic_ode=None, ode=_hhode, data=data, diverges=False, is_lowlevel=True, occupies_stack=True, eps=eps, alpha=alpha, beta=beta, gamma=gamma, omega_x=omega_x, omega_y=omega_y, is_flagged=False, is_active=False)
+
+        py2 = 2*(self.E - self.V(x0, 0)) - px0**2
+        if py2 < 0:
+            raise ValueError('Kinetic energy is not positive')
+        py0 = py2**0.5
+        self.set_ics(0., [float(x0), 0., float(px0), py0])
 
     @property
     def px(self):
@@ -44,31 +64,6 @@ class DynamicOrbit(ods.HamiltonianOrbit):
     @property
     def py0(self):
         return self.py[0]
-    
-    def copy(self):...
-
-
-class HenonHeilesOrbit(DynamicOrbit):
-
-    E = 1
-
-    def __init__(self, eps, alpha, beta, gamma, omega_x, omega_y, x0, px0):
-        super().__init__(_hhode, 2)
-        self.eps = eps
-        self.alpha = alpha
-        self.beta = beta
-        self.gamma = gamma
-        self.omega_x = omega_x
-        self.omega_y = omega_y
-        self.is_flagged = False
-        self.is_active = False
-
-        py2 = 2*(self.E - self.V(x0, 0)) - px0**2
-        if py2 < 0:
-            raise ValueError('Kinetic energy is not positive')
-        py0 = py2**0.5
-
-        self.set_ics(0., [float(x0), 0., float(px0), py0])
 
     @property
     def N(self):
@@ -94,9 +89,6 @@ class HenonHeilesOrbit(DynamicOrbit):
     def ycoords(self):#because it is symmetric
         return self.px
         return np.concatenate((self.px, -self.px), axis=0)
-
-    def flag(self):
-        self.is_flagged = not self.is_flagged
     
     def integrate(self, Delta_t, dt, **kwargs):
         return super().integrate(Delta_t, dt, args=(self.eps, float(self.alpha), float(self.beta), float(self.gamma), self.omega_x, self.omega_y), **kwargs)
@@ -105,10 +97,8 @@ class HenonHeilesOrbit(DynamicOrbit):
         return self.integrate(1e10, dt, func = "psolve", err=err, max_frames=N+1)
     
     def reset(self):
-        self.is_flagged = False
-        self.is_active = False
+        self._set(is_flagged=False, is_active=False)
         super().reset()
-
 
     def V(self, x, y):
         return 1/2*(self.omega_x**2*x**2 + self.omega_y**2*y**2) + self.eps*(x*y**2 + self.alpha*x**3 + self.beta*x**2*y + self.gamma*y**3)
@@ -122,20 +112,11 @@ class HenonHeilesOrbit(DynamicOrbit):
     def copy(self):
         orb = HenonHeilesOrbit(self.eps, self.alpha, self.beta, self.gamma, self.omega_x, self.omega_y, self.x0, self.px0)
         orb._copy_data_from(self)
-        orb.is_active = self.is_active
-        orb.is_flagged = self.is_flagged
         return orb
 
 
 class Rat(float):
-    '''
-    
-    
-    REMOVE LATER###################################################################
-    ##################################################################################
-    #################################################################################
-    
-    '''
+
     def __new__(cls, m, n):
         return super().__new__(cls, m/n)
     
@@ -182,8 +163,7 @@ class PoincareSection:
     _fig: Fig
     figure: PSFig
 
-    _args: tuple[float]#extra parameters to pass when calling self.PO, and in self.__class__
-    PO: Type[HenonHeilesOrbit] #PO must inherit from the same ClassicalPotential class
+    _args: tuple[float]#extra parameters to pass when calling HenonHeilesOrbit, and in self.__class__
     fig: Figure
     E = 1
 
@@ -208,7 +188,7 @@ class PoincareSection:
         return self.__class__(*self._args, load=load)
 
     def new_orbit(self, x, px):
-        return self.PO(*self._args, x, px)
+        return HenonHeilesOrbit(*self._args, x, px)
 
     def init(self, x, px):
         orb = self.new_orbit(x, px)
@@ -219,14 +199,14 @@ class PoincareSection:
         self.orbit.pop((x0, px0))
 
     def activate(self, x0, px0):
-        self.orbit[(x0, px0)].is_active = True
+        self.orbit[(x0, px0)]._set(is_active=True)
     
     def deactivate(self, x0, px0):
-        self.orbit[(x0, px0)].is_active = False
+        self.orbit[(x0, px0)]._set(is_active=False)
 
     def deactivate_all(self):
         for orb in self:
-            orb.is_active = False
+            orb._set(is_active=False)
 
     def __iter__(self):
         for qi in self.orbit:
@@ -373,7 +353,7 @@ class PoincareSection:
                         self.orbit.pop(q)
                 self.temp.clear()
             elif event.key == 'control':
-                self.nearest_orbit(x, px).is_active = True
+                self.nearest_orbit(x, px)._set(is_active=True)
             elif event.key == 'shift':
                 self.temp.clear()
                 self.deactivate_all()
@@ -386,7 +366,7 @@ class PoincareSection:
             if not self.temp.isempty():
                 self.init_all(self.temp.all_coords())
                 for q in self.temp.all_coords():
-                    self.orbit[q].is_active = True
+                    self.orbit[q]._set(is_active=True)
                 self.temp.clear()
 
             active_orbs = [q for q in self.orbit if self.orbit[q].is_active]
@@ -415,12 +395,10 @@ class PoincareSection:
 
     def flag_all(self):
         for q in self.orbit:
-            self.orbit[q].flag()
+            self.orbit[q]._set(is_flagged = not self.orbit[q].is_flagged)
 
 
 class Henon_Heiles(PoincareSection):
-
-    PO = HenonHeilesOrbit
 
     def __init__(self, eps, alpha=None, beta=0, gamma=0, omega_x=1., omega_y=1., load=True, project_folder=os.getcwd()):
         if alpha is None:
