@@ -30,7 +30,7 @@ class HenonHeilesOde : public PyOde<Tx, Tf> {
             vec::HeapArray<Tx> f_flat = flatten(res.f);
             size_t nd = res.f[0].size();
             size_t nt = res.f.size();
-            
+
             PyOdeResult<Tx> odres{res.x, f_flat, to_numpy(res.x, {nt}), to_numpy(f_flat, {nt, nd}), res.diverges, res.is_stiff, res.runtime};
         
             return odres;
@@ -56,6 +56,7 @@ PYBIND11_MODULE(henon, m){
             py::arg("dt"),
             py::kw_only(),
             py::arg("err") = 0.,
+            py::arg("cutoff_step") = 0.,
             py::arg("method") = py::str("RK4"),
             py::arg("max_frames") = -1,
             py::arg("args") = py::tuple(),
@@ -75,10 +76,11 @@ PYBIND11_MODULE(henon, m){
 
 
     py::class_<PyOdeResult<Tx>>(m, "OdeResult", py::module_local())
-        .def_readwrite("var", &PyOdeResult<Tx>::x)
-        .def_readwrite("func", &PyOdeResult<Tx>::f)
-        .def_readwrite("runtime", &PyOdeResult<Tx>::runtime)
-        .def_readwrite("diverges", &PyOdeResult<Tx>::diverges);
+        .def_readonly("var", &PyOdeResult<Tx>::x)
+        .def_readonly("func", &PyOdeResult<Tx>::f)
+        .def_readonly("diverges", &PyOdeResult<Tx>::diverges)
+        .def_readonly("is_stiff", &PyOdeResult<Tx>::is_stiff)
+        .def_readonly("runtime", &PyOdeResult<Tx>::runtime);
 
     m.def("ode", []() {
         return HenonHeilesOde();
