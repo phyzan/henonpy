@@ -33,7 +33,7 @@ class HenonHeilesOrbit(ods.HamiltonianOrbit):
 
     def __init__(self, eps, alpha, beta, gamma, omega_x, omega_y, x0, px0):
         data = np.empty((0, 5), dtype=np.float64)
-        ods.Base.__init__(self, symbolic_ode=None, ode=_hhode, data=data, diverges=False, is_lowlevel=True, occupies_stack=True, eps=eps, alpha=alpha, beta=beta, gamma=gamma, omega_x=omega_x, omega_y=omega_y, is_flagged=False, is_active=False)
+        ods.Base.__init__(self, ode=_hhode, data=data, diverges=False, is_stiff=True, eps=eps, alpha=alpha, beta=beta, gamma=gamma, omega_x=omega_x, omega_y=omega_y, is_flagged=False, is_active=False)
 
         py2 = 2*(self.E - self.V(x0, 0)) - px0**2
         if py2 < 0:

@@ -72,7 +72,10 @@ PYBIND11_MODULE(henon, m){
             py::arg("method") = py::str("RK4"),
             py::arg("max_frames") = -1,
             py::arg("args") = py::tuple())
-        .def("copy", &HenonHeilesOde::newcopy);
+        .def("copy", &HenonHeilesOde::newcopy)
+        .def("__deepcopy__", [](const HenonHeilesOde &self, py::dict) {
+            return self.newcopy();  // Calls copy constructor and returns a new object
+        });;
 
 
     py::class_<PyOdeResult<Tx>>(m, "OdeResult", py::module_local())
