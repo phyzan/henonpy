@@ -27,13 +27,10 @@ class HenonHeilesOde : public PyOde<Tx, Tf> {
             ode_args.getcond = getcond;
             
             OdeResult<Tx, Tf> res = ODE<Tx, Tf>::solve(ode_args);
-            vec::HeapArray<Tx> f_flat = flatten(res.f);
-            size_t nd = res.f[0].size();
-            size_t nt = res.f.size();
-
-            PyOdeResult<Tx> odres{res.x, f_flat, to_numpy(res.x, {nt}), to_numpy(f_flat, {nt, nd}), res.diverges, res.is_stiff, res.runtime};
+            
+            PyOdeResult<Tx> pyres = to_PyOdeResult(res);
         
-            return odres;
+            return pyres;
 
         }
 
