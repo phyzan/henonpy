@@ -9,8 +9,8 @@ Tf hhode(const Tx& t, const Tf& q, const std::vector<Tx>& args){
 }
 
 
-bool getcond(const Tx& t1, const Tx& t2, const Tf& f1, const Tf& f2){
-    return f1[1] < 0 && f2[1] >= 0;
+bool getcond(const Tx& t, const Tf& f){
+    return f[1] == 0 && f[3] > 0;
 }
 
 
