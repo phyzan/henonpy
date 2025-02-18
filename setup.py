@@ -37,7 +37,7 @@ setup(
         "matplotlib==3.9.2",
         "pybind11==2.13.6",
         "joblib==1.4.2",
-        "scikit-image>=0.25.2"
+        "scikit-image>=0.25.2",
         "numiphy@git+https://github.com/phyzan/numiphy.git",
     ],
     cmdclass={"install": CustomInstall},
