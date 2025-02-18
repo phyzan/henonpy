@@ -46,7 +46,7 @@ class HenonHeilesOde : public PyOde<Tx, Tf> {
 
 PYBIND11_MODULE(henon, m){
 
-    py::class_<HenonHeilesOde>(m, "henon", py::module_local())
+    py::class_<HenonHeilesOde>(m, "HenonOde", py::module_local())
         .def("solve", &HenonHeilesOde::pysolve,
             py::arg("ics"),
             py::arg("t"),
