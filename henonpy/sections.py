@@ -396,6 +396,27 @@ class HenonHeiles(Template):
             return orb.diverges - 0.5
         
         return bisect(f, pxmin, pxmax, tol=tol)[1]
+    
+    def implicit(self, Phi, xlims, ylims, n=400, linewidth=1, c='brown', **kwargs):
+
+        '''
+        Phi(x, y, px, py, eps, a, b, c, w1, w2)
+        '''
+
+        def f(x, px):
+            py = (2*(self.E - self.V(x, 0)) - px**2)**0.5
+            return Phi(x, 0, px, py, *self.coefs) - Phi(orb.x[0, 0], 0, orb.p[0, 0], orb.p[1, 0], *self.coefs)
+        
+        fig = self.figure
+        fig._artists.clear()
+        for orb in self.orbit_list:
+            data = implicit_plot_data(f, xlims, ylims, n)
+            for (x, px) in data:
+                fig.add(LinePlot(x=x, y=px, linewidth=linewidth, c=c, **kwargs))
+                self._artists.append(fig.artists[-1])
+        return fig
+        
+
 
     @property
     def Norbs(self):
@@ -403,7 +424,7 @@ class HenonHeiles(Template):
 
     @property
     def figure(self):
-        fig = SquareFigure(self.name, xlabel='$x$', ylabel='$\\dot{x}$', yrot=0, aspect='equal')
+        fig = SquareFigure(self.name, title=self.title, xlabel='$x$', ylabel='$\\dot{x}$', yrot=0, aspect='equal')
         for art in self.artists:
             fig.add(art)
         return fig
@@ -425,7 +446,7 @@ class HenonHeiles(Template):
 
     @property
     def title(self):
-        return r'$\epsilon$={0}, $\alpha$={1}, $B = {2}$'.format(self.eps, self.a, round(self.w2**2, 5))
+        return '$\\epsilon={0}, \\alpha={1}, \\beta={2}, \\gamma={3}$\n$\\omega_1={4}, \\omega_2={5}$'.format(*self.coefs)
 
 
 
