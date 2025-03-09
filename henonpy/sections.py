@@ -1,6 +1,5 @@
 from __future__ import annotations
 from numiphy import odesolvers as ods
-from numiphy.odesolvers import bisect
 from numiphy.toolkit import tools
 from numiphy.toolkit import Template
 from numiphy.toolkit import interpolate1D
@@ -14,9 +13,8 @@ from matplotlib.backend_bases import MouseEvent
 from matplotlib.figure import Figure as Fig
 from skimage.measure import find_contours
 import shutil
-from .henon import ode
+from .henon import *
 
-_hhode = ode()
 
 class Rat(float):
 
@@ -37,7 +35,7 @@ class Rat(float):
         return self.m, self.n
 
 
-class HenonHeilesOrbit(ods.HamiltonianOrbit):
+class HenonHeilesOrbit(HenonOde):
 
     E = 1
 
@@ -50,15 +48,14 @@ class HenonHeilesOrbit(ods.HamiltonianOrbit):
     is_flagged: bool
     is_active: bool
 
-    def __init__(self, eps, alpha, beta, gamma, omega_x, omega_y, x0, px0):
-        data = np.empty((0, 5), dtype=np.float64)
-        Template.__init__(self, ode=_hhode, data=data, diverges=False, is_stiff=True, eps=eps, alpha=alpha, beta=beta, gamma=gamma, omega_x=omega_x, omega_y=omega_y, is_flagged=False, is_active=False)
+    def __init__(self, eps, alpha, beta, gamma, omega_x, omega_y, x0, px0, **kwargs):
+        self.eps, self.alpha, self.beta, self.gamma, self.omega_x, self.omega_y, self.is_flagged, self.is_active = eps, alpha, beta, gamma, omega_x, omega_y, False, False
 
         py2 = 2*(self.E - self.V(x0, 0)) - px0**2
         if py2 < 0:
             raise ValueError('Kinetic energy is not positive')
         py0 = py2**0.5
-        self.set_ics(0., [float(x0), 0., float(px0), py0])
+        super().__init__(np.array([float(x0), 0., float(px0), py0]), (eps, alpha, beta, gamma, omega_x, omega_y), 1e-5, **kwargs)
 
     @property
     def N(self):
@@ -72,8 +69,18 @@ class HenonHeilesOrbit(ods.HamiltonianOrbit):
             return 'red'
         elif self.diverges:
             return 'k'
+        elif self.is_stiff:
+            return 'purple'
         else:
             return 'blue'
+    
+    @property
+    def x(self):
+        return self.q[:, :2].transpose()
+
+    @property
+    def p(self):
+        return self.q[:, 2:].transpose()
     
     @property
     def xcoords(self):#because it is symmetric
@@ -82,23 +89,12 @@ class HenonHeilesOrbit(ods.HamiltonianOrbit):
         else:
             return self.x[0]
         
-    
     @property
     def ycoords(self):#because it is symmetric
         if self.beta == 0 and self.gamma == 0:
             return np.concatenate((self.p[0], -self.p[0]), axis=0)
         else:
             return self.p[0]
-    
-    def integrate(self, Delta_t, dt, **kwargs):
-        return super().integrate(Delta_t, dt, args=(self.eps, float(self.alpha), float(self.beta), float(self.gamma), self.omega_x, self.omega_y), **kwargs)
-
-    def pintegrate(self, N, dt=1e-2, err=1e-8):
-        return self.integrate(1e10, dt, func = "psolve", err=err, max_frames=N+1)
-    
-    def reset(self):
-        self._set(is_flagged=False, is_active=False)
-        super().reset()
 
     def V(self, x, y):
         return 1/2*(self.omega_x**2*x**2 + self.omega_y**2*y**2) + self.eps*(x*y**2 + self.alpha*x**3 + self.beta*x**2*y + self.gamma*y**3)
@@ -110,9 +106,9 @@ class HenonHeilesOrbit(ods.HamiltonianOrbit):
         return '$\\epsilon = %s, \\alpha = %s$\n$x_0 = %s, y_0 = %s, \\dot{x}_0 = %s, \\dot{y}_0 = %s$'%strs
     
     @staticmethod
-    def pintegrate_all(orbs: list[HenonHeilesOrbit], N, dt=0.01, err=1e-8):
-        for orb in orbs:
-            orb.pintegrate(N, dt, err)
+    def pintegrate_all(orbs: list[HenonHeilesOrbit], N):
+        _orbs = [orb for orb in orbs if not orb.is_dead]
+        integrate_all(_orbs, 1e20, 0, N)
 
 
 class HenonHeiles(Template):
@@ -129,17 +125,8 @@ class HenonHeiles(Template):
     _temp: Artist
     _artists: list[Artist]
 
-    def __init__(self, **kwargs):
-        eps = kwargs.pop('eps')
-        a = kwargs.pop('a', Rat(-1, 3))
-        b = kwargs.pop('b', 0)
-        c = kwargs.pop('c', 0)
-        w1 = kwargs.pop('w1', 1)
-        w2 = kwargs.pop('w2', 1)
-        E = kwargs.pop('E', 1)
-        if kwargs:
-            raise ValueError(f'{self.__class__} does not take an argument called "{list(kwargs.keys())[0]}"')
-        Template.__init__(self, eps=eps, a=a, b=b, c=c, w1=w1, w2=w2, **kwargs, E=E, orbit_list=[], _temp=ScatterPlot(x=[], y=[], c='forestgreen', s=1), _artists=[])
+    def __init__(self, *, eps, a, b, c, w1, w2, E=1):
+        Template.__init__(self, eps=eps, a=a, b=b, c=c, w1=w1, w2=w2, E=E, orbit_list=[], _temp=ScatterPlot(x=[], y=[], c='forestgreen', s=1), _artists=[])
 
     def V(self, x, y): 
         return 1/2*(self.w1**2*x**2 + self.w2**2*y**2) + self.eps*(x*y**2 + self.a*x**3 + self.b*x**2*y + self.c*y**3)
@@ -149,21 +136,21 @@ class HenonHeiles(Template):
         hh._set(orbit_list=[], _temp=[], _artists=[])
         return hh
     
-    def new_orbit(self, x, px):
-        return HenonHeilesOrbit(*self.coefs, x, px)
+    def new_orbit(self, x, px, **kwargs):
+        return HenonHeilesOrbit(*self.coefs, x, px, **kwargs)
 
-    def init(self, x, px):
-        orb = self.new_orbit(x, px)
+    def init(self, x, px, **kwargs):
+        orb = self.new_orbit(x, px, **kwargs)
         self.orbit_list.append(orb)
         return orb
 
-    def init_all(self, q0):
+    def init_all(self, q0, **kwargs):
         for qi in q0:
-            self.init(*qi)
+            self.init(*qi, **kwargs)
 
     def deactivate_all(self):
         for orb in self.orbit_list:
-            orb._set(is_active=False)
+            orb.is_active = False
 
     def px_limits(self, x, y=0, py=1e-6):
         p2 = 2*(self.E-self.V(x, y)-py**2)
@@ -172,16 +159,16 @@ class HenonHeiles(Template):
         p = p2**0.5
         return -p, p
 
-    def perform_all(self, N, dt=0.01, err=1e-8):
-        HenonHeilesOrbit.pintegrate_all(self.orbit_list, N, dt, err)
+    def perform_all(self, N):
+        HenonHeilesOrbit.pintegrate_all(self.orbit_list, N)
 
-    def periodic_orbit_near(self, x0, px0, n, derr=1e-8, dt=1e-2, err=1e-8)->tuple[float, float]:
+    def periodic_orbit_near(self, x0, px0, n, derr=1e-8, dt=1e-2, **odekw)->tuple[float, float]:
         
         def dist(q):
             try:
                 x, px = q
                 orb = self.new_orbit(x, px)
-                orb.pintegrate(n, dt, err)
+                orb.pintegrate(n, dt, **odekw)
                 return np.array([orb.x[-1]-x, orb.p[0][-1]-px])
             except:
                 return np.array([1e10, 1e10])
@@ -189,8 +176,8 @@ class HenonHeiles(Template):
         return fsolve(dist, [x0, px0], xtol=derr)
 
     def rotation_number(self, xobs, pxobs, x0, px0, N=300, ode={}):
-        orb = self.new_orbit(x0, px0)
-        orb.pintegrate(N, **ode)
+        orb = self.new_orbit(x0, px0, **ode)
+        orb.pintegrate(N)
         x = [xi-xobs for xi in orb.x]
         px = [pxi-pxobs for pxi in orb.p[0]]
         z = [xi+1j*pxi for xi, pxi in zip(x, px)]
@@ -254,7 +241,7 @@ class HenonHeiles(Template):
         ax.set_ylim(*ylims)
         fig.canvas.draw_idle()
 
-    def handle(self, event: MouseEvent, N: int, fig:Fig, ax:Axes, **kwargs):
+    def handle(self, event: MouseEvent, N: int, fig:Fig, ax:Axes, **odeargs):
         x, px = event.xdata, event.ydata
         if event.button == 1:
             if event.key is None:
@@ -265,31 +252,31 @@ class HenonHeiles(Template):
                         self.orbit_list.pop(i)
                 self._temp.clear()
             elif event.key == 'control':
-                self.nearest_orbit(x, px)._set(is_active=True)
+                self.nearest_orbit(x, px).is_active = True
             elif event.key == 'shift':
                 self._temp.clear()
                 self.deactivate_all()
         elif event.button == 3 and event.key is None:
             if not self._temp.isempty():
-                self.init_all(self._temp.all_coords())
+                self.init_all(self._temp.all_coords(), **odeargs)
                 Nnew = len(self._temp.all_coords())
                 for orb in self.orbit_list[self.Norbs-Nnew:]:
-                    orb._set(is_active=True)
+                    orb.is_active = True
                 self._temp.clear()
 
             active_orbs = [orb for orb in self.orbit_list if orb.is_active]
             if active_orbs:
-                HenonHeilesOrbit.pintegrate_all(active_orbs, N, **kwargs)
+                HenonHeilesOrbit.pintegrate_all(active_orbs, N)
 
         self._draw(fig, ax)
 
-    def plot(self, interact = False, N=200, ode_args={}):
+    def plot(self, interact = False, N=200, **odeargs):
         fig, ax = plt.subplots(figsize=(5, 5))
         ax.set_aspect('equal', adjustable='box')
 
         self._draw(fig, ax, current_lims=False)
         if interact:
-            fig.canvas.mpl_connect('button_press_event', lambda event: self.handle(event, N, fig, ax, **ode_args))
+            fig.canvas.mpl_connect('button_press_event', lambda event: self.handle(event, N, fig, ax, **odeargs))
             
         return fig, ax
 
@@ -354,7 +341,7 @@ class HenonHeiles(Template):
         def f(x, y):
             return self.V(x, y) - self.E
         
-        fig = SquareFigure('czv_'+self.name, title=self.title, xlabel='$x$', ylabel='$\\dot{x}$', yrot=0)
+        fig = SquareFigure('czv_'+self.name, title=self.title, xlabel='$x$', ylabel='$y$', yrot=0, aspect='equal')
 
         data = implicit_plot_data(f, xlims, ylims, n)
         for (x, y) in data:
@@ -388,14 +375,14 @@ class HenonHeiles(Template):
             fig.savefig(p2, bbox_inches='tight')
         return fig, ax
 
-    def get_limiting_px(self, pxmin, pxmax, x=0., tol=1e-6, err=1e-8, N=100):
+    def get_limiting_px(self, pxmin, pxmax, x=0., bisect_xtol=1e-6, N=100, **odekw):
 
         def f(px):
-            orb = self.new_orbit(x, px)
-            orb.pintegrate(N, err=err)
+            orb = self.new_orbit(x, px, **odekw)
+            orb.pintegrate(N)
             return orb.diverges - 0.5
         
-        return bisect(f, pxmin, pxmax, tol=tol)[1]
+        return tools.bisect(f, pxmin, pxmax, tol=bisect_xtol)[1]
     
     def implicit(self, Phi, xlims, ylims, n=400, linewidth=1, c='brown', **kwargs):
 
@@ -442,7 +429,7 @@ class HenonHeiles(Template):
     def name(self):
         A = round(self.w1**2, 10)
         B = round(self.w2**2, 10)
-        return f'{self.eps}'.replace('.', '').replace('/', '_') + '__' + f'{self.a}'.replace('.', '').replace('/', '_') + '__' + f'{A}'.replace('.', '').replace('/', '_')+'__' + f'{B}'.replace('.', '').replace('/', '_')
+        return f'{self.eps}'.replace('.', '').replace('/', '_') + '__' + f'{self.a}'.replace('.', '').replace('/', '_') + '__' + f'{self.b}'.replace('.', '').replace('/', '_') + '__' + f'{self.c}'.replace('.', '').replace('/', '_') + '__' + f'{A}'.replace('.', '').replace('/', '_')+'__' + f'{B}'.replace('.', '').replace('/', '_')
 
     @property
     def title(self):
@@ -540,7 +527,7 @@ class IntegrableHenonHeiles(HenonHeiles):
         for i in range(n-1):
             for j in range(i+1, n):
                 if (ps.orbit_list[i].diverges-0.5) * (ps.orbit_list[j].diverges-0.5) < 0:
-                    return bisect(f, x[i], x[j], tol=1e-5)[2]
+                    return tools.bisect(f, x[i], x[j], tol=1e-5)[2]
         raise ValueError('Bisection limits invalid')
 
 

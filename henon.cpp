@@ -1,44 +1,32 @@
-#include "pyode.hpp"
+#include <odepack/pyode.hpp>
 
 
-using Tx = double;
-using Tf = vec::StackArray<double, 4>;
+using Tt = double;
+using Tf = vec<double, 4>;
 
-Tf hhode(const Tx& t, const Tf& q, const std::vector<Tx>& args){
+Tf hhode(const Tt& t, const Tf& q, const std::vector<Tt>& args){
     return {q[2], q[3], -(std::pow(args[4], 2.)*q[0] + args[0]*(std::pow(q[1], 2.) + 3.*args[1]*std::pow(q[0], 2.) + 2.*args[2]*q[0]*q[1])), -(std::pow(args[5], 2.)*q[1] + args[0]*(2.*q[0]*q[1] + args[2]*std::pow(q[0], 2.) + 3.*args[3]*std::pow(q[1], 2.)))};
 }
 
 
-bool getcond(const Tx& t1, const Tx& t2, const Tf& f1, const Tf& f2){
-    return f1[1] < 0 && f2[1] >= 0;
+Tt event(const Tt& t, const Tf& q, const std::vector<Tt>& args){
+    return q[1];
+}
+
+bool check_if(const Tt& t, const Tf& q, const std::vector<Tt>& args){
+    return q[3] > 0;
 }
 
 
 #pragma GCC visibility push(hidden)
-class HenonHeilesOde : public PyOde<Tx, Tf> {
+class HenonHeilesOde : public PyODE<Tt, Tf> {
 
     public:
-        HenonHeilesOde(): PyOde<Tx, Tf>(hhode) {}
+        HenonHeilesOde(const py::array q0, const py::tuple args, const Tt stepsize, const Tt rtol, const Tt atol, const Tt min_step, const Tt event_tol):PyODE<Tt, Tf>(hhode, 0., toCPP_Array<Tt, Tf>(q0), stepsize, rtol, atol, min_step, toCPP_Array<Tt, std::vector<Tt>>(args), "RK45", event_tol, {Event<Tt, Tf>("Poincare Section", event, check_if)}){}
 
-        const PyOdeResult<Tx> poincare_solve(const py::tuple& py_ics, const Tx& x, const Tx& dx, const Tx& err, const Tx& cutoff_step, py::str method, const int max_frames, py::tuple pyargs) {
-
-            const PyOdeArgs<Tx> pyparams = {py_ics, x, dx, err, cutoff_step, method, max_frames, pyargs, py::none(), py::none()};
-            OdeArgs<Tx, Tf> ode_args = to_OdeArgs<Tx, Tf>(pyparams);
-            ode_args.getcond = getcond;
-            
-            OdeResult<Tx, Tf> res = ODE<Tx, Tf>::solve(ode_args);
-            
-            PyOdeResult<Tx> pyres = to_PyOdeResult(res);
-        
-            return pyres;
-
+        PyOdeResult<Tt, Tf> py_Pintegrate(const size_t& events){
+            return this->py_integrate(1e20, 0, events, true, false);
         }
-
-
-        HenonHeilesOde newcopy() const{
-            return HenonHeilesOde();
-        }
-
 };
 #pragma GCC visibility pop
 
@@ -46,45 +34,22 @@ class HenonHeilesOde : public PyOde<Tx, Tf> {
 
 PYBIND11_MODULE(henon, m){
 
-    py::class_<HenonHeilesOde>(m, "HenonOde", py::module_local())
-        .def("solve", &HenonHeilesOde::pysolve,
-            py::arg("ics"),
-            py::arg("t"),
-            py::arg("dt"),
-            py::kw_only(),
-            py::arg("err") = 0.,
-            py::arg("cutoff_step") = 0.,
-            py::arg("method") = py::str("RK4"),
-            py::arg("max_frames") = -1,
-            py::arg("args") = py::tuple(),
-            py::arg("getcond") = py::none(),
-            py::arg("breakcond") = py::none())
-        .def("psolve", &HenonHeilesOde::poincare_solve,
-            py::arg("ics"),
-            py::arg("t"),
-            py::arg("dt"),
-            py::kw_only(),
-            py::arg("err") = 0.,
-            py::arg("cutoff_step") = 0.,
-            py::arg("method") = py::str("RK4"),
-            py::arg("max_frames") = -1,
-            py::arg("args") = py::tuple())
-        .def("copy", &HenonHeilesOde::newcopy)
-        .def("__deepcopy__", [](const HenonHeilesOde &self, py::dict) {
-            return self.newcopy();  // Calls copy constructor and returns a new object
-        });;
+    define_ode_module<Tt, Tf>(m);
 
+    py::class_<HenonHeilesOde, PyODE<Tt, Tf>>(m, "HenonOde", py::module_local())
+        .def(py::init<py::array, py::tuple, Tt, Tt, Tt, Tt, Tt>(),
+                py::arg("q0"),
+                py::arg("args"),
+                py::arg("stepsize"),
+                py::kw_only(),
+                py::arg("rtol")=1e-6,
+                py::arg("atol")=1e-12,
+                py::arg("min_step")=0.,
+                py::arg("event_tol")=1e-12)
 
-    py::class_<PyOdeResult<Tx>>(m, "OdeResult", py::module_local())
-        .def_readonly("var", &PyOdeResult<Tx>::x)
-        .def_readonly("func", &PyOdeResult<Tx>::f)
-        .def_readonly("diverges", &PyOdeResult<Tx>::diverges)
-        .def_readonly("is_stiff", &PyOdeResult<Tx>::is_stiff)
-        .def_readonly("runtime", &PyOdeResult<Tx>::runtime);
-
-    m.def("ode", []() {
-        return HenonHeilesOde();
-    });
-
+        .def("pintegrate", &HenonHeilesOde::py_Pintegrate,
+            py::arg("p"));
 
 }
+
+//g++ -O3 -Wall -shared -std=c++20 -fopenmp -I/usr/include/python3.12 -I/usr/include/pybind11 -fPIC $(python3 -m pybind11 --includes) henon.cpp -o henon$(python3-config --extension-suffix)
