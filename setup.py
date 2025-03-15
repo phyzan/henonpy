@@ -1,5 +1,20 @@
-# --- Now proceed with the rest of setup.py ---
+import os
+import sys
 from setuptools import setup, find_packages
+from setuptools.command.install import install
+
+
+class CustomInstall(install):
+    def run(self):
+
+        from numiphy.toolkit.compile_tools import compile
+
+        package_dir = self.build_lib
+        target_dir = os.path.join(package_dir, "henonpy")
+        cwd = os.path.dirname(os.path.realpath(__file__))
+        cpp_path = os.path.join(cwd, "henon.cpp")
+        compile(cpp_path, target_dir, "henon")
+        super().run()
 
 
 setup(
@@ -20,5 +35,5 @@ setup(
         "scikit-image>=0.25.2",
         "numiphy@git+https://github.com/phyzan/numiphy.git",
     ],
-    zip_safe=False
+    cmdclass=dict(install=CustomInstall)
 )

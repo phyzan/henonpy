@@ -24,9 +24,6 @@ class HenonHeilesOde : public PyODE<Tt, Tf> {
     public:
         HenonHeilesOde(const py::array q0, const py::tuple args, const Tt stepsize, const Tt rtol, const Tt atol, const Tt min_step, const Tt event_tol):PyODE<Tt, Tf>(hhode, 0., toCPP_Array<Tt, Tf>(q0), stepsize, rtol, atol, min_step, toCPP_Array<Tt, std::vector<Tt>>(args), "RK45", event_tol, {Event<Tt, Tf>("Poincare Section", event, check_if)}){}
 
-        PyOdeResult<Tt, Tf> py_Pintegrate(const size_t& events){
-            return this->py_integrate(1e20, 0, events, true, false);
-        }
 };
 #pragma GCC visibility pop
 
@@ -45,10 +42,7 @@ PYBIND11_MODULE(henon, m){
                 py::arg("rtol")=1e-6,
                 py::arg("atol")=1e-12,
                 py::arg("min_step")=0.,
-                py::arg("event_tol")=1e-12)
-
-        .def("pintegrate", &HenonHeilesOde::py_Pintegrate,
-            py::arg("p"));
+                py::arg("event_tol")=1e-12);
 
 }
 

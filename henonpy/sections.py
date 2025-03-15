@@ -13,7 +13,8 @@ from matplotlib.backend_bases import MouseEvent
 from matplotlib.figure import Figure as Fig
 from skimage.measure import find_contours
 import shutil
-from .henon import *
+from numiphy.odesolvers.odepack import *
+from .henon import * #type: ignore
 
 
 class Rat(float):
@@ -402,8 +403,9 @@ class HenonHeiles(Template):
                 fig.add(LinePlot(x=x, y=px, linewidth=linewidth, c=c, **kwargs))
                 self._artists.append(fig.artists[-1])
         return fig
-        
-
+    
+    def save_for_paper(self, proj: Project, name: str):
+        save_for_paper(proj, self.figure, name)
 
     @property
     def Norbs(self):
@@ -675,3 +677,13 @@ def implicit_plot_data(f, xlim: tuple, ylim: tuple, resolution=400):
         contour_lines.append((x_contour, y_contour))
 
     return contour_lines
+
+def save_for_paper(proj: Project, fig: Figure, name: str):
+    fig = fig.copy()
+    fig.name = name+'_titled'
+    proj.savefig(fig)
+    fig2 = fig.copy()
+    fig2.title = ''
+    fig2.name = fig.name[:-7]
+    proj.savefig(fig2)
+    
