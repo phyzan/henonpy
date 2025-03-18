@@ -56,7 +56,7 @@ class HenonHeilesOrbit(HenonOde):
         if py2 < 0:
             raise ValueError('Kinetic energy is not positive')
         py0 = py2**0.5
-        super().__init__(np.array([float(x0), 0., float(px0), py0]), (eps, alpha, beta, gamma, omega_x, omega_y), 1e-5, **kwargs)
+        super().__init__(np.array([float(x0), 0., float(px0), py0]), (eps, alpha, beta, gamma, omega_x, omega_y), **kwargs)
 
     @property
     def N(self):

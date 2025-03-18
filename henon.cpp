@@ -20,9 +20,11 @@ bool check_if(const Tt& t, const Tf& q, const std::vector<Tt>& args){
 
 #pragma GCC visibility push(hidden)
 class HenonHeilesOde : public PyODE<Tt, Tf> {
+    
+    Event<Tt, Tf> ps_event = Event<Tt, Tf>("Poincare Section", event, check_if);
 
     public:
-        HenonHeilesOde(const py::array q0, const py::tuple args, const Tt stepsize, const Tt rtol, const Tt atol, const Tt min_step, const Tt event_tol):PyODE<Tt, Tf>(hhode, 0., toCPP_Array<Tt, Tf>(q0), stepsize, rtol, atol, min_step, toCPP_Array<Tt, std::vector<Tt>>(args), "RK45", event_tol, {Event<Tt, Tf>("Poincare Section", event, check_if)}){}
+        HenonHeilesOde(const py::array q0, const py::tuple args, const Tt rtol, const Tt atol, const Tt min_step, const Tt event_tol):PyODE<Tt, Tf>(hhode, 0., toCPP_Array<Tt, Tf>(q0), rtol, atol, min_step, inf<Tt>(), 0., toCPP_Array<Tt, std::vector<Tt>>(args), "RK45", event_tol, {&ps_event}){}
 
 };
 #pragma GCC visibility pop
@@ -34,10 +36,9 @@ PYBIND11_MODULE(henon, m){
     define_ode_module<Tt, Tf>(m);
 
     py::class_<HenonHeilesOde, PyODE<Tt, Tf>>(m, "HenonOde", py::module_local())
-        .def(py::init<py::array, py::tuple, Tt, Tt, Tt, Tt, Tt>(),
+        .def(py::init<py::array, py::tuple, Tt, Tt, Tt, Tt>(),
                 py::arg("q0"),
                 py::arg("args"),
-                py::arg("stepsize"),
                 py::kw_only(),
                 py::arg("rtol")=1e-6,
                 py::arg("atol")=1e-12,
