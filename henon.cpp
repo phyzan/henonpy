@@ -17,14 +17,23 @@ bool check_if(const Tt& t, const Tf& q, const std::vector<Tt>& args){
     return q[3] > 0;
 }
 
+Event<Tt, Tf>* temp_ptr = nullptr;
+
+Event<Tt, Tf>* occupy_ptr(const Tt& event_tol){
+    delete temp_ptr;
+    temp_ptr = new Event<Tt, Tf>("Poincare Section", event, check_if, nullptr, false, event_tol);
+    return temp_ptr;
+}
+
 
 #pragma GCC visibility push(hidden)
 class HenonHeilesOde : public PyODE<Tt, Tf> {
-    
-    Event<Tt, Tf> ps_event = Event<Tt, Tf>("Poincare Section", event, check_if);
 
     public:
-        HenonHeilesOde(const py::array q0, const py::tuple args, const Tt rtol, const Tt atol, const Tt min_step, const Tt event_tol):PyODE<Tt, Tf>(hhode, 0., toCPP_Array<Tt, Tf>(q0), rtol, atol, min_step, inf<Tt>(), 0., toCPP_Array<Tt, std::vector<Tt>>(args), "RK45", event_tol, {&ps_event}){}
+        HenonHeilesOde(const py::array q0, const py::tuple args, const Tt rtol, const Tt atol, const Tt min_step, const Tt event_tol):PyODE<Tt, Tf>(hhode, 0., toCPP_Array<Tt, Tf>(q0), rtol, atol, min_step, inf<Tt>(), 0., toCPP_Array<Tt, std::vector<Tt>>(args), "RK45", {occupy_ptr(event_tol)}){
+            delete temp_ptr;
+            temp_ptr = nullptr;
+        }
 
 };
 #pragma GCC visibility pop
