@@ -2,10 +2,15 @@
 
 
 using Tt = double;
-using Tf = vec<double, 4>;
+using Tf = vec<double, -1>;
 
-Tf hhode(const Tt& t, const Tf& q, const std::vector<Tt>& args){
-    return {q[2], q[3], -(std::pow(args[4], 2.)*q[0] + args[0]*(std::pow(q[1], 2.) + 3.*args[1]*std::pow(q[0], 2.) + 2.*args[2]*q[0]*q[1])), -(std::pow(args[5], 2.)*q[1] + args[0]*(2.*q[0]*q[1] + args[2]*std::pow(q[0], 2.) + 3.*args[3]*std::pow(q[1], 2.)))};
+const int N = -1;
+
+void hhode(Tf& res, const Tt& t, const Tf& q, const std::vector<Tt>& args){
+    res[0] = q[2];
+    res[1] = q[3];
+    res[2] = -(std::pow(args[4], 2.)*q[0] + args[0]*(std::pow(q[1], 2.) + 3.*args[1]*std::pow(q[0], 2.) + 2.*args[2]*q[0]*q[1]));
+    res[3] = -(std::pow(args[5], 2.)*q[1] + args[0]*(2.*q[0]*q[1] + args[2]*std::pow(q[0], 2.) + 3.*args[3]*std::pow(q[1], 2.)));
 }
 
 
@@ -17,42 +22,15 @@ bool check_if(const Tt& t, const Tf& q, const std::vector<Tt>& args){
     return q[3] > 0;
 }
 
-Event<Tt, Tf>* temp_ptr = nullptr;
+PreciseEvent<Tt, N> ps_event("Poincare Section", event, check_if, nullptr, false, 1e-15);
+std::vector<Event<Tt, N>*> events = {&ps_event};
 
-Event<Tt, Tf>* occupy_ptr(const Tt& event_tol){
-    delete temp_ptr;
-    temp_ptr = new Event<Tt, Tf>("Poincare Section", event, check_if, nullptr, false, event_tol);
-    return temp_ptr;
-}
-
-
-#pragma GCC visibility push(hidden)
-class HenonHeilesOde : public PyODE<Tt, Tf> {
-
-    public:
-        HenonHeilesOde(const py::array q0, const py::tuple args, const Tt rtol, const Tt atol, const Tt min_step, const Tt event_tol):PyODE<Tt, Tf>(hhode, 0., toCPP_Array<Tt, Tf>(q0), rtol, atol, min_step, inf<Tt>(), 0., toCPP_Array<Tt, std::vector<Tt>>(args), "RK45", {occupy_ptr(event_tol)}){
-            delete temp_ptr;
-            temp_ptr = nullptr;
-        }
-
-};
-#pragma GCC visibility pop
-
-
+const void* ptr1 = reinterpret_cast<const void*>(hhode);
+const void* ptr2 = reinterpret_cast<const void*>(&events);
 
 PYBIND11_MODULE(henon, m){
 
-    define_ode_module<Tt, Tf>(m);
-
-    py::class_<HenonHeilesOde, PyODE<Tt, Tf>>(m, "HenonOde", py::module_local())
-        .def(py::init<py::array, py::tuple, Tt, Tt, Tt, Tt>(),
-                py::arg("q0"),
-                py::arg("args"),
-                py::kw_only(),
-                py::arg("rtol")=1e-6,
-                py::arg("atol")=1e-12,
-                py::arg("min_step")=0.,
-                py::arg("event_tol")=1e-12);
+    m.def("_ptrs", [](){ py::list res(2); res[0] = ptr1; res[1] = ptr2; return res;});
 
 }
 

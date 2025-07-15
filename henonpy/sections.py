@@ -14,8 +14,11 @@ from matplotlib.figure import Figure as Fig
 from skimage.measure import find_contours
 import shutil
 from numiphy.odesolvers.odepack import *
-from .henon import * #type: ignore
+from .henon import _ptrs #type: ignore
 
+
+_llf = LowLevelFunction(_ptrs()[0], 4, 6)
+_llev = LowLevelEventArray(_ptrs()[1], 4, 6)
 
 class Rat(float):
 
@@ -36,7 +39,7 @@ class Rat(float):
         return self.m, self.n
 
 
-class HenonHeilesOrbit(HenonOde):
+class HenonHeilesOrbit(LowLevelODE):
 
     E = 1
 
@@ -56,7 +59,7 @@ class HenonHeilesOrbit(HenonOde):
         if py2 < 0:
             raise ValueError('Kinetic energy is not positive')
         py0 = py2**0.5
-        super().__init__(np.array([float(x0), 0., float(px0), py0]), (eps, alpha, beta, gamma, omega_x, omega_y), **kwargs)
+        super().__init__(_llf, 0, np.array([float(x0), 0., float(px0), py0]), args=(eps, alpha, beta, gamma, omega_x, omega_y), events=_llev, **kwargs)
 
     @property
     def N(self):
@@ -70,8 +73,6 @@ class HenonHeilesOrbit(HenonOde):
             return 'red'
         elif self.diverges:
             return 'k'
-        elif self.is_stiff:
-            return 'purple'
         else:
             return 'blue'
     
@@ -109,7 +110,7 @@ class HenonHeilesOrbit(HenonOde):
     @staticmethod
     def pintegrate_all(orbs: list[HenonHeilesOrbit], N):
         _orbs = [orb for orb in orbs if not orb.is_dead]
-        integrate_all(_orbs, 1e20, 0, N)
+        integrate_all(_orbs, 1e20, 0, {"Poincare Section": (N, True)})
 
 
 class HenonHeiles(Template):

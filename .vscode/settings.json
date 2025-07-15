@@ -64,6 +64,10 @@
         "cinttypes": "cpp",
         "typeindex": "cpp",
         "typeinfo": "cpp",
-        "variant": "cpp"
+        "variant": "cpp",
+        "list": "cpp",
+        "fstream": "cpp",
+        "valarray": "cpp",
+        "__verbose_abort": "cpp"
     }
 }
