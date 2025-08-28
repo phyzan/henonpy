@@ -1,21 +1,4 @@
-import os
-import sys
 from setuptools import setup, find_packages
-from setuptools.command.install import install
-
-
-class CustomInstall(install):
-    def run(self):
-
-        from numiphy.toolkit.compile_tools import compile
-
-        package_dir = self.build_lib
-        target_dir = os.path.join(package_dir, "henonpy")
-        cwd = os.path.dirname(os.path.realpath(__file__))
-        cpp_path = os.path.join(cwd, "henon.cpp")
-        compile(cpp_path, target_dir, "henon")
-        super().run()
-
 
 setup(
     name="henonpy",
@@ -32,6 +15,5 @@ setup(
         "matplotlib>=3.9.2",
         "scikit-image>=0.25.2",
         "numiphy@git+https://github.com/phyzan/numiphy.git",
-    ],
-    cmdclass=dict(install=CustomInstall)
+    ]
 )

@@ -13,12 +13,21 @@ from matplotlib.backend_bases import MouseEvent
 from matplotlib.figure import Figure as Fig
 from skimage.measure import find_contours
 import shutil
-from numiphy.odesolvers.odepack import *
-from .henon import _ptrs #type: ignore
+from numiphy.odesolvers import *
 
+def _henon_heils_sys():
+    x, y, px, py, t, wx, wy, eps, a, b, c = variables('x, y, px, py, t, wx, wy, eps, a, b, c')
+    V = (wx**2*x**2 + wy**2*y**2)/2 + eps*(x*y**2 + a*x**3 + b*x**2*y +c*y**3)
+    poinc_event = SymbolicEvent("PSoF", y, 1, event_tol=1e-20)
+    return HamiltonianSystem2D(V, t, x, y, px, py, args=(eps, a, b, c, wx, wy), events=[poinc_event])
 
-_llf = LowLevelFunction(_ptrs()[0], 4, 6)
-_llev = LowLevelEventArray(_ptrs()[1], 4, 6)
+def henon_heiles_var_sys():
+    x, y, px, py, delx, dely, delpx, delpy, t, wx, wy, eps, a, b, c = variables('x, y, px, py, delx, dely, delpx, delpy, t, wx, wy, eps, a, b, c')
+    V = (wx**2*x**2 + wy**2*y**2)/2 + eps*(x*y**2 + a*x**3 + b*x**2*y +c*y**3)
+    poinc_event = SymbolicEvent("PSoF", y, 1, event_tol=1e-20)
+    return HamiltonianVariationalSystem2D(V, t, x, y, px, py, delx, dely, delpx, delpy, args=(eps, a, b, c, wx, wy), events=[poinc_event])
+
+henon_heiles_system = _henon_heils_sys()
 
 class Rat(float):
 
@@ -59,7 +68,8 @@ class HenonHeilesOrbit(LowLevelODE):
         if py2 < 0:
             raise ValueError('Kinetic energy is not positive')
         py0 = py2**0.5
-        super().__init__(_llf, 0, np.array([float(x0), 0., float(px0), py0]), args=(eps, alpha, beta, gamma, omega_x, omega_y), events=_llev, **kwargs)
+        orbit = henon_heiles_system.get(0, [x0, 0, px0, py0], args=(eps, alpha, beta, gamma, omega_x, omega_y), **kwargs)
+        super().__init__(orbit)
 
     @property
     def N(self):
@@ -110,7 +120,7 @@ class HenonHeilesOrbit(LowLevelODE):
     @staticmethod
     def pintegrate_all(orbs: list[HenonHeilesOrbit], N):
         _orbs = [orb for orb in orbs if not orb.is_dead]
-        integrate_all(_orbs, 1e20, 0, {"Poincare Section": (N, True)})
+        integrate_all(_orbs, 1e20, 0, [EventOpt("PSoF", max_events=N, terminate=True)], display_progress=False)
 
 
 class HenonHeiles(Template):
@@ -127,7 +137,7 @@ class HenonHeiles(Template):
     _temp: Artist
     _artists: list[Artist]
 
-    def __init__(self, *, eps, a, b, c, w1, w2, E=1):
+    def __init__(self, *, eps, a, b=0, c=0, w1=1, w2=1, E=1):
         Template.__init__(self, eps=eps, a=a, b=b, c=c, w1=w1, w2=w2, E=E, orbit_list=[], _temp=ScatterPlot(x=[], y=[], c='forestgreen', s=1), _artists=[])
 
     def V(self, x, y): 
@@ -164,16 +174,15 @@ class HenonHeiles(Template):
     def perform_all(self, N):
         HenonHeilesOrbit.pintegrate_all(self.orbit_list, N)
 
-    def periodic_orbit_near(self, x0, px0, n, derr=1e-8, dt=1e-2, **odekw)->tuple[float, float]:
-        
+    def periodic_orbit_near(self, x0, px0, n, derr=1e-8, **odekw)->tuple[float, float]:
+
         def dist(q):
-            try:
-                x, px = q
-                orb = self.new_orbit(x, px)
-                orb.pintegrate(n, dt, **odekw)
-                return np.array([orb.x[-1]-x, orb.p[0][-1]-px])
-            except:
-                return np.array([1e10, 1e10])
+            x, px = q
+            orb = self.new_orbit(x, px, **odekw)
+            orb.integrate(1e10, max_frames=0, event_options=[opt])
+            return np.array([orb.x[0][-1]-x, orb.p[0][-1]-px])
+        
+        opt = EventOpt('PSoF', max_events=n, terminate=True)
 
         return fsolve(dist, [x0, px0], xtol=derr)
 
