@@ -14,6 +14,6 @@ setup(
         "scipy",
         "matplotlib>=3.9.2",
         "scikit-image>=0.25.2",
-        "numiphy@git+https://github.com/phyzan/numiphy.git",
+        "numiphy>=1.0",
     ]
 )
