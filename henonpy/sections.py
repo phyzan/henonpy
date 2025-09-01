@@ -134,8 +134,8 @@ class HenonHeiles(Template):
     E: float
 
     orbit_list: list[HenonHeilesOrbit]
-    _temp: Artist
-    _artists: list[Artist]
+    _temp: PointCollection
+    _artists: list[PointCollection]
 
     def __init__(self, *, eps, a, b=0, c=0, w1=1, w2=1, E=1):
         Template.__init__(self, eps=eps, a=a, b=b, c=c, w1=w1, w2=w2, E=E, orbit_list=[], _temp=ScatterPlot(x=[], y=[], c='forestgreen', s=1), _artists=[])
