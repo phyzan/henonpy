@@ -1,5 +1,4 @@
 from __future__ import annotations
-from numiphy import odesolvers as ods
 from numiphy.toolkit import tools
 from numiphy.toolkit import Template
 from numiphy.toolkit import interpolate1D
@@ -13,7 +12,7 @@ from matplotlib.backend_bases import MouseEvent
 from matplotlib.figure import Figure as Fig
 from skimage.measure import find_contours
 import shutil
-from numiphy.odesolvers import *
+from odepack import *
 
 def _henon_heils_sys():
     x, y, px, py, t, wx, wy, eps, a, b, c = variables('x, y, px, py, t, wx, wy, eps, a, b, c')
