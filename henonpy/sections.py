@@ -17,13 +17,13 @@ from odepack import *
 def _henon_heils_sys():
     x, y, px, py, t, wx, wy, eps, a, b, c = variables('x, y, px, py, t, wx, wy, eps, a, b, c')
     V = (wx**2*x**2 + wy**2*y**2)/2 + eps*(x*y**2 + a*x**3 + b*x**2*y +c*y**3)
-    poinc_event = SymbolicEvent("PSoF", y, 1, event_tol=1e-20)
+    poinc_event = SymbolicPreciseEvent("PSoF", y, 1, event_tol=1e-20)
     return HamiltonianSystem2D(V, t, x, y, px, py, args=(eps, a, b, c, wx, wy), events=[poinc_event])
 
 def henon_heiles_var_sys():
     x, y, px, py, delx, dely, delpx, delpy, t, wx, wy, eps, a, b, c = variables('x, y, px, py, delx, dely, delpx, delpy, t, wx, wy, eps, a, b, c')
     V = (wx**2*x**2 + wy**2*y**2)/2 + eps*(x*y**2 + a*x**3 + b*x**2*y +c*y**3)
-    poinc_event = SymbolicEvent("PSoF", y, 1, event_tol=1e-20)
+    poinc_event = SymbolicPreciseEvent("PSoF", y, 1, event_tol=1e-20)
     return HamiltonianVariationalSystem2D(V, t, x, y, px, py, delx, dely, delpx, delpy, args=(eps, a, b, c, wx, wy), events=[poinc_event])
 
 henon_heiles_system = _henon_heils_sys()
@@ -687,12 +687,12 @@ def implicit_plot_data(f, xlim: tuple, ylim: tuple, resolution=400):
 
     return contour_lines
 
-def save_for_paper(proj: Project, fig: Figure, name: str):
+def save_for_paper(proj: Project, fig: Figure, name: str, override_fig_params = False):
     fig = fig.copy()
     fig.name = name+'_titled'
-    proj.savefig(fig)
+    proj.savefig(fig, override_fig_params=override_fig_params)
     fig2 = fig.copy()
     fig2.title = ''
     fig2.name = fig.name[:-7]
-    proj.savefig(fig2)
+    proj.savefig(fig2, override_fig_params=override_fig_params)
     
