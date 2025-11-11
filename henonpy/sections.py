@@ -178,7 +178,7 @@ class HenonHeiles(Template):
         def dist(q):
             x, px = q
             orb = self.new_orbit(x, px, **odekw)
-            orb.integrate(1e10, max_frames=0, event_options=[opt])
+            orb.integrate(1e10, t_eval=[], event_options=[opt])
             return np.array([orb.x[0][-1]-x, orb.p[0][-1]-px])
         
         opt = EventOpt('PSoF', max_events=n, terminate=True)
