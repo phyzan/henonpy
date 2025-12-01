@@ -15,16 +15,10 @@ import shutil
 from odepack import *
 
 def _henon_heils_sys():
-    x, y, px, py, t, wx, wy, eps, a, b, c = variables('x, y, px, py, t, wx, wy, eps, a, b, c')
+    x, y, px, py, t, wx, wy, eps, a, b, c = symbols('x, y, px, py, t, wx, wy, eps, a, b, c')
     V = (wx**2*x**2 + wy**2*y**2)/2 + eps*(x*y**2 + a*x**3 + b*x**2*y +c*y**3)
-    poinc_event = SymbolicPreciseEvent("PSoF", y, 1, event_tol=1e-20)
+    poinc_event = SymbolicPreciseEvent("PSoS", y, 1, event_tol=1e-20)
     return HamiltonianSystem2D(V, t, x, y, px, py, args=(eps, a, b, c, wx, wy), events=[poinc_event])
-
-def henon_heiles_var_sys():
-    x, y, px, py, delx, dely, delpx, delpy, t, wx, wy, eps, a, b, c = variables('x, y, px, py, delx, dely, delpx, delpy, t, wx, wy, eps, a, b, c')
-    V = (wx**2*x**2 + wy**2*y**2)/2 + eps*(x*y**2 + a*x**3 + b*x**2*y +c*y**3)
-    poinc_event = SymbolicPreciseEvent("PSoF", y, 1, event_tol=1e-20)
-    return HamiltonianVariationalSystem2D(V, t, x, y, px, py, delx, dely, delpx, delpy, args=(eps, a, b, c, wx, wy), events=[poinc_event])
 
 henon_heiles_system = _henon_heils_sys()
 
@@ -119,7 +113,7 @@ class HenonHeilesOrbit(LowLevelODE):
     @staticmethod
     def pintegrate_all(orbs: list[HenonHeilesOrbit], N):
         _orbs = [orb for orb in orbs if not orb.is_dead]
-        integrate_all(_orbs, 1e20, 0, [EventOpt("PSoF", max_events=N, terminate=True)], display_progress=False)
+        integrate_all(_orbs, 1e20, 0, [EventOpt("PSoS", max_events=N, terminate=True)], display_progress=False)
 
 
 class HenonHeiles(Template):
@@ -181,7 +175,7 @@ class HenonHeiles(Template):
             orb.integrate(1e10, t_eval=[], event_options=[opt])
             return np.array([orb.x[0][-1]-x, orb.p[0][-1]-px])
         
-        opt = EventOpt('PSoF', max_events=n, terminate=True)
+        opt = EventOpt('PSoS', max_events=n, terminate=True)
 
         return fsolve(dist, [x0, px0], xtol=derr)
 
